@@ -30,10 +30,10 @@ git clone https://github.com/IntelRealSense/realsense-ros.git
 
 ### **Building the Packages**
 Once all required packages are cloned, navigate back to the workspace root and build the packages:
-
+Add the Cmake argument for GPU acceleration of point cloud production with OpenGL.
 ```bash
 cd ~/rk_ws
-colcon build --symlink-install
+colcon build --symlink-install --cmake-args '-DBUILD_ACCELERATE_GPU_WITH_GLSL=ON' 
 ```
 
 Source the workspace:
