@@ -60,10 +60,8 @@ RUN mkdir -p /etc/apt/keyrings && \
     echo "deb [signed-by=/etc/apt/keyrings/librealsense.pgp] https://librealsense.intel.com/Debian/apt-repo $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/librealsense.list && \
     apt-get update
 
-# Install ROS 2 RealSense Camera and librealsense2
+# Install librealsense2
 RUN apt-get update && apt-get install -y \
-    ros-humble-realsense2-camera \
-    ros-humble-realsense2-description \
     librealsense2-utils librealsense2-dev librealsense2-dbg
 
 # Install peripheral rtabmap packages
@@ -78,6 +76,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     equivs
 
 WORKDIR /home/husky_ws/src
+
+#Clone ROS2 RS Wrapper into Source directory, includes the camera and the description packages
+RUN git clone https://github.com/IntelRealSense/realsense-ros.git -b ros2-master
+
 RUN git clone https://github.com/siddarth09/elevation_mapping_ros2.git
 RUN git clone https://github.com/SivertHavso/kindr_ros.git -b ros2
 RUN git clone https://github.com/ANYbotics/kindr.git
