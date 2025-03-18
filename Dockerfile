@@ -1,17 +1,8 @@
-# BASE IMAGE contains Pytorch, TorchVision, OpenCV, CUDA, TensorRT, and Ultralytics
+#Base image 
 FROM ultralytics/ultralytics:8.3.49-jetson-jetpack6
 
-# Completely remove OpenCV
-# RUN apt-get purge -y '*opencv*' && apt-get autoremove -y \
-#     && apt-get clean
-
-RUN apt-get update && \
-    apt-get install -y --fix-missing && \
-    dpkg --configure -a || true && \
-    apt-get -f install || true && \
-    rm -rf /var/lib/dpkg/info/binutils-aarch64-linux-gnu.* && \
-    apt-get purge -y *opencv* nvidia-opencv opencv-samples-data* || true && \
-    apt-get autoremove -y && apt-get clean
+RUN apt-get purge -y '*opencv*' && apt-get autoremove -y \
+    && apt-get clean
 
 WORKDIR /husky_ws
 
@@ -54,18 +45,18 @@ RUN apt-get install --no-install-recommends -y \
 # Install realsense-ros from source
 RUN rosdep init && rosdep update
 
-# Add Intel RealSense repository
-RUN mkdir -p /etc/apt/keyrings && \
-    curl -sSfL https://librealsense.intel.com/Debian/librealsense.pgp -o /etc/apt/keyrings/librealsense.pgp && \
-    echo "deb [signed-by=/etc/apt/keyrings/librealsense.pgp] https://librealsense.intel.com/Debian/apt-repo $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/librealsense.list && \
-    apt-get update
+#Add gcc/g++ 12 to get compatability with cuda before running installation
+RUN apt-get install gcc-12 g++-12 \
+ update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100 \
+ update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
 
-# Install ROS 2 RealSense Camera and librealsense2
-RUN apt-get update && apt-get install -y \
-    ros-humble-realsense2-camera \
-    ros-humble-realsense2-description \
-    librealsense2-utils librealsense2-dev librealsense2-dbg
+#INSTALLATION FOR LIBREALSENSE with JETSON, add the bash script then run it
+WORKDIR /librealinstall
+COPY libuvc_installation.sh /libuvc_installation.sh
+RUN chmod +x libuvc_installation.sh
+RUN /libuvc_installation.sh
 
+RUN 
 # Install peripheral rtabmap packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-pcl-ros \
@@ -78,9 +69,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     equivs
 
 WORKDIR /home/husky_ws/src
+
+#Add realsense ros to source to build with GPU acceleration
+RUN git clone https://github.com/IntelRealSense/realsense-ros.git
+
 RUN git clone https://github.com/siddarth09/elevation_mapping_ros2.git
 RUN git clone https://github.com/SivertHavso/kindr_ros.git -b ros2
 RUN git clone https://github.com/ANYbotics/kindr.git
+
 
 # Modify CMakeLists.txt to include Eigen3 paths
 RUN sed -i '/include_directories(/a \
@@ -105,7 +101,7 @@ RUN rosdep update && rosdep install --from-paths /home/husky_ws/src --ignore-src
 
 # Build the remaining packages using colcon (excluding kindr)
 RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \
-    colcon build --symlink-install"
+    colcon build --symlink-install --cmake-args '-DBUILD_ACCELERATE_GPU_WITH_GLSL=ON'"
 
 RUN echo "source /husky_ws/install/setup.bash" >> ~/.bashrc
 
